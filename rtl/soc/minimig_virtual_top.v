@@ -122,17 +122,21 @@ wire           tg68_rst;
 wire [ 16-1:0] tg68_dat_in;
 wire [ 16-1:0] tg68_dat_in2;
 wire [ 16-1:0] tg68_dat_out;
+wire [ 16-1:0] tg68_dat_out2;
 wire [ 32-1:0] tg68_adr;
 wire [  3-1:0] tg68_IPL;
 wire           tg68_dtack;
 wire           tg68_as;
 wire           tg68_uds;
 wire           tg68_lds;
+wire           tg68_uds2;
+wire           tg68_lds2;
 wire           tg68_rw;
 wire           tg68_ena7RD;
 wire           tg68_ena7WR;
 wire           tg68_ena28;
 wire [ 16-1:0] tg68_cout;
+wire [ 16-1:0] tg68_cin;
 wire           tg68_cpuena;
 wire [  4-1:0] cpu_config;
 wire [3:0]     board_configured;
@@ -154,11 +158,14 @@ wire           tg68_ovr;
 // minimig
 wire           led;
 wire [ 16-1:0] ram_data;      // sram data bus
+wire [ 16-1:0] ram_data2;     // sram data bus 2nd word
 wire [ 16-1:0] ramdata_in;    // sram data bus in
 wire [ 48-1:0] chip48;        // big chip read
 wire [ 23-1:1] ram_address;   // sram address bus
 wire           _ram_bhe;      // sram upper byte select
 wire           _ram_ble;      // sram lower byte select
+wire           _ram_bhe2;     // sram upper byte select 2nd word
+wire           _ram_ble2;     // sram lower byte select 2nd word
 wire           _ram_we;       // sram write enable
 wire           _ram_oe;       // sram output enable
 wire           _15khz;        // scandoubler disable
@@ -483,15 +490,19 @@ TG68K #(.havertg(havertg ? "true" : "false"),
   .data_read    (tg68_dat_in      ),
   .data_read2   (tg68_dat_in2     ),
   .data_write   (tg68_dat_out     ),
+  .data_write2  (tg68_dat_out2    ),
   .as           (tg68_as          ),
   .uds          (tg68_uds         ),
   .lds          (tg68_lds         ),
+  .uds2         (tg68_uds2        ),
+  .lds2         (tg68_lds2        ),
   .rw           (tg68_rw          ),
   .vma          (                 ),
   .wrd          (                 ),
   .ena7RDreg    (tg68_ena7RD      ),
   .ena7WRreg    (tg68_ena7WR      ),
   .fromram      (tg68_cout        ),
+  .toram        (tg68_cin         ),
   .ramready     (tg68_cpuena      ),
   .cpu          (cpu_config[1:0]  ),
   .turbochipram (turbochipram     ),
@@ -576,7 +587,7 @@ sdram_ctrl sdram (
   .hostRD       (host_ramdata     ),
   .hostena      (host_ramack      ),
 
-  .cpuWR        (tg68_dat_out     ),
+  .cpuWR        (tg68_cin         ),
   .cpuAddr      (tg68_cad[24:1]   ),
   .cpuU         (tg68_cuds        ),
   .cpuL         (tg68_clds        ),
@@ -586,9 +597,12 @@ sdram_ctrl sdram (
 
 //  .cpu_dma      (tg68_cdma        ),
   .chipWR       (ram_data         ),
+  .chipWR2      (tg68_dat_out2    ),
   .chipAddr     ({1'b0, ram_address[22:1]}),
   .chipU        (_ram_bhe         ),
   .chipL        (_ram_ble         ),
+  .chipU2       (_ram_bhe2        ),
+  .chipL2       (_ram_ble2        ),
   .chipRW       (_ram_we          ),
   .chip_dma     (_ram_oe          ),
   .clk7_en      (clk7_en          ),
@@ -680,6 +694,8 @@ minimig minimig (
 	._cpu_as      (tg68_as          ), // M68K address strobe
 	._cpu_uds     (tg68_uds         ), // M68K upper data strobe
 	._cpu_lds     (tg68_lds         ), // M68K lower data strobe
+	._cpu_uds2    (tg68_uds2        ), // M68K upper data strobe 2nd word
+	._cpu_lds2    (tg68_lds2        ), // M68K lower data strobe 2nd word
 	.cpu_r_w      (tg68_rw          ), // M68K read / write
 	._cpu_dtack   (tg68_dtack       ), // M68K data acknowledge
 	._cpu_reset   (tg68_rst         ), // M68K reset
@@ -692,6 +708,8 @@ minimig minimig (
 	.ram_address  (ram_address[22:1]), // SRAM address bus
 	._ram_bhe     (_ram_bhe         ), // SRAM upper byte select
 	._ram_ble     (_ram_ble         ), // SRAM lower byte select
+	._ram_bhe2    (_ram_bhe2        ), // SRAM upper byte select 2nd word
+	._ram_ble2    (_ram_ble2        ), // SRAM lower byte select 2nd word
 	._ram_we      (_ram_we          ), // SRAM write enable
 	._ram_oe      (_ram_oe          ), // SRAM output enable
 	.chip48       (chip48           ), // big chipram read
@@ -848,7 +866,7 @@ cfide #(.spimux(spimux ? "true" : "false")) mycfide
 		.amiga_ack(amigahost_ack),
 	
 		.clk_28(CLK_28),
-		.tick_in(aud_tick),
+		.tick_in(aud_tick)
 	);
 
 AudioMix myaudiomix

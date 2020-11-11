@@ -86,6 +86,7 @@ wire          bridge_ack;
 wire          bridge_err;
 wire  [4-1:0] bridge_bytesel;
 wire [16-1:0] ram_data;
+wire [16-1:0] ram_data2;
 wire [22-1:1] ram_address;
 wire          _ram_bhe;
 wire          _ram_ble;
@@ -161,9 +162,12 @@ sdram_ctrl sdram_ctrl (
   .chipAddr     ({2'b00, ram_address[21:1]}),
   .chipL        (_ram_ble         ),
   .chipU        (_ram_bhe         ),
+  .chipL2       (1'b1             ),
+  .chipU2       (1'b1             ),
   .chipRW       (_ram_we          ),
   .chip_dma     (_ram_oe          ),
   .chipWR       (ram_data         ),
+  .chipWR2      (ram_data2        ),
   .chipRD       (ramdata_in       ),
   .chip48       (                 ),
   // RTG

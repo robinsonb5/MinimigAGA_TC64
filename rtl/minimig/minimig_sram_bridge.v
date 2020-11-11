@@ -19,6 +19,8 @@ module minimig_sram_bridge
 	input	rd,			   				// bus read
 	input	hwr,						// bus high byte write
 	input	lwr,						// bus low byte write
+	input	hwr2,						// bus high byte write 2nd word
+	input	lwr2,						// bus low byte write 2nd word
 	//SRAM external signals
 //	output	reg _bhe = 1,				// sram upper byte
 //	output	reg _ble = 1,   				// sram lower byte
@@ -29,6 +31,8 @@ module minimig_sram_bridge
 //	inout	[15:0] data		  			// sram data das
 	output	_bhe,				// sram upper byte
 	output	_ble,   				// sram lower byte
+	output	_bhe2,				// sram upper byte 2nd word
+	output	_ble2,   				// sram lower byte 2nd word
 	output	_we,				// sram write enable
 	output	_oe,				// sram output enable
 	output	[22:1] address,			// sram address bus
@@ -94,6 +98,7 @@ assign _oe = !rd | !enable;
 
 // generate ram upper byte enable _bhe
 assign _bhe = !hwr | !enable;
+assign _bhe2 = !hwr2 | !enable;
 //always @(posedge clk28m)
 //	if (!c1 && !c3) // deassert upper byte enable in Q0
 //		_bhe <= 1'b1;
@@ -104,6 +109,7 @@ assign _bhe = !hwr | !enable;
 		
 // generate ram lower byte enable _ble
 assign _ble = !lwr | !enable;
+assign _ble2 = !lwr2 | !enable;
 //always @(posedge clk28m)
 //	if (!c1 && !c3) // deassert lower byte enable in Q0
 //		_ble <= 1'b1;

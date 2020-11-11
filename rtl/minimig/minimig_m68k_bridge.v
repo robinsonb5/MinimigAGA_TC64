@@ -49,11 +49,15 @@ module minimig_m68k_bridge
 	input	_as,					// m68k adress strobe
 	input	_lds,					// m68k lower data strobe d0-d7
 	input	_uds,					// m68k upper data strobe d8-d15
+	input	_lds2,				// m68k lower data strobe d0-d7
+	input	_uds2,				// m68k upper data strobe d8-d15
 	input	r_w,					// m68k read / write
 	output	 _dtack,				// m68k data acknowledge to cpu
 	output	rd,						// bus read 
 	output	hwr,					// bus high write
 	output	lwr,					// bus low write
+	output	hwr2,					// bus high write
+	output	lwr2,					// bus low write
 	input	[23:1] address,			// external cpu address bus
 //	output	reg [23:1] address_out,	// internal cpu address bus output
 	output	[23:1] address_out,	// internal cpu address bus output
@@ -118,7 +122,7 @@ reg		[15:0] ldata_in;		// latched data_in
 reg		[15:0] ldata_in2;		// latched data_in word2
 wire	enable;					// enable
 reg		lr_w,l_as,l_dtack;  	// synchronised inputs
-reg		l_uds,l_lds;
+reg		l_uds,l_lds,l_uds2,l_lds2;
 
 //reg   l_as28m;        // latched address strobe in turbo mode
 
@@ -171,6 +175,8 @@ always @(posedge clk)
 always @(posedge clk) begin
   l_uds <= !halt ? _uds : !(host_bs[1]);
   l_lds <= !halt ? _lds : !(host_bs[0]);
+  l_uds2 <= !halt ? _uds2 : 1'b1;
+  l_lds2 <= !halt ? _lds2 : 1'b1;
   lr_w <= !halt ? r_w : !host_we;
   l_as <= !halt ? _as : !host_cs;
   l_dtack <= _dtack;
@@ -210,11 +216,13 @@ assign _dtack = (_ta_n );
 // synchronous control signals
 assign enable = ((~l_as & ~l_dtack & ~cck & ~turbo) | (~l_as28m & l_dtack & ~(dbr & xbs) & ~nrdy & turbo));
 //assign enable = ((~_as & ~_dtack & ~cck & ~turbo) | (~_as28m & _dtack & ~(dbr & xbs) & ~nrdy & turbo));
-assign rd = (enable & lr_w);
+assign rd = (enable & lr_w & (~l_uds | ~l_lds));
 //assign rd = !halt ? (enable & r_w) : !host_we;
 // in turbo mode l_uds and l_lds may be delayed by 35 ns
 assign hwr = (enable & ~lr_w & ~l_uds);
 assign lwr = (enable & ~lr_w & ~l_lds);
+assign hwr2 = (enable & ~lr_w & ~l_uds2);
+assign lwr2 = (enable & ~lr_w & ~l_lds2);
 //assign hwr = !halt ? (enable & ~r_w & ~_uds) : host_we && host_bs[1];
 //assign lwr = !halt ? (enable & ~r_w & ~_lds) : host_we && host_bs[0];
 

@@ -61,6 +61,8 @@ module gary
 	input	cpu_rd,					//cpu read
 	input	cpu_hwr,				//cpu high write
 	input	cpu_lwr,				//cpu low write
+	input	cpu_hwr2,				//cpu high write 2nd word
+	input	cpu_lwr2,				//cpu low write 2nd word
 	input	cpu_hlt,
 
 	input	ovl,					//overlay kickstart rom over chipram
@@ -76,6 +78,8 @@ module gary
 	output	ram_rd,					//bus read
 	output	ram_hwr,				//bus high write
 	output	ram_lwr,				//bus low write
+	output	ram_hwr2,				//bus high write 2nd word
+	output	ram_lwr2,				//bus low write 2nd word
 
 	output 	sel_reg,  				//select chip register bank
 	output 	reg [3:0] sel_chip, 	//select chip memory
@@ -107,6 +111,8 @@ assign cpu_data_in = dbr ? 16'h00_00 : custom_data_out | ram_data_out | {16{sel_
 assign ram_rd  = dbr ? ~dbwe : cpu_rd;
 assign ram_hwr = dbr ?  dbwe : cpu_hwr;
 assign ram_lwr = dbr ?  dbwe : cpu_lwr;
+assign ram_hwr2 = dbr ? 1'b0 : cpu_hwr2;
+assign ram_lwr2 = dbr ? 1'b0 : cpu_lwr2;
 
 //--------------------------------------------------------------------------------------
 

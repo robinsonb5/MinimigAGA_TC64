@@ -157,6 +157,8 @@ module minimig
 	input	_cpu_as,			// m68k address strobe
 	input	_cpu_uds,			// m68k upper data strobe
 	input	_cpu_lds,			// m68k lower data strobe
+	input	_cpu_uds2,		// m68k upper data strobe 2nd word
+	input	_cpu_lds2,		// m68k lower data strobe 2nd word
 	input	cpu_r_w,			// m68k read / write
 	output	_cpu_dtack,			// m68k data acknowledge
 	output	_cpu_reset,			// m68k reset
@@ -169,6 +171,8 @@ module minimig
 	output	[22:1] ram_address,	//sram address bus
 	output	_ram_bhe,			//sram upper byte select
 	output	_ram_ble,			//sram lower byte select
+	output	_ram_bhe2,		//sram upper byte select 2nd word
+	output	_ram_ble2,		//sram lower byte select 2nd word
 	output	_ram_we,			//sram write enable
 	output	_ram_oe,			//sram output enable
   input [48-1:0] chip48,         // big chipram read
@@ -306,9 +310,13 @@ wire		[23:1] ram_address_out;	//ram address out
 wire		ram_rd;					//ram read enable
 wire		ram_hwr;				//ram high byte write enable 
 wire		ram_lwr;				//ram low byte write enable 
+wire		ram_hwr2;				//ram high byte write enable
+wire		ram_lwr2;				//ram low byte write enable
 wire		cpu_rd; 				//cpu read enable
 wire		cpu_hwr;				//cpu high byte write enable
 wire		cpu_lwr;				//cpu low byte write enable
+wire		cpu_hwr2;				//cpu high byte write enable 2nd word
+wire		cpu_lwr2;				//cpu low byte write enable 2nd word
 
 //register address bus
 wire		[8:1] reg_address; 		//main register address bus
@@ -862,11 +870,15 @@ minimig_m68k_bridge CPU1
 	._as(_cpu_as),
 	._lds(_cpu_lds),
 	._uds(_cpu_uds),
+	._lds2(_cpu_lds2),
+	._uds2(_cpu_uds2),
 	.r_w(cpu_r_w),
 	._dtack(_cpu_dtack),
 	.rd(cpu_rd),
 	.hwr(cpu_hwr),
 	.lwr(cpu_lwr),
+	.hwr2(cpu_hwr2),
+	.lwr2(cpu_lwr2),
 	.address(cpu_address),
 	.address_out(cpu_address_out),
 	.cpudatain(cpudata_in),
@@ -919,8 +931,12 @@ minimig_sram_bridge RAM1
 	.rd(ram_rd),
 	.hwr(ram_hwr),
 	.lwr(ram_lwr),
+	.hwr2(ram_hwr2),
+	.lwr2(ram_lwr2),
 	._bhe(_ram_bhe),
 	._ble(_ram_ble),
+	._bhe2(_ram_bhe2),
+	._ble2(_ram_ble2),
 	._we(_ram_we),
 	._oe(_ram_oe),
 	.address(ram_address),
@@ -974,6 +990,8 @@ gary GARY1
 	.cpu_rd(cpu_rd),
 	.cpu_hwr(cpu_hwr),
 	.cpu_lwr(cpu_lwr),
+	.cpu_hwr2(cpu_hwr2),
+	.cpu_lwr2(cpu_lwr2),
   .cpu_hlt(cpuhlt),
 	.ovl(ovl),
 	.dbr(dbr),
@@ -985,6 +1003,8 @@ gary GARY1
 	.ram_rd(ram_rd),
 	.ram_hwr(ram_hwr),
 	.ram_lwr(ram_lwr),
+	.ram_hwr2(ram_hwr2),
+	.ram_lwr2(ram_lwr2),
   .ecs(|chipset_config[4:3]),
   .a1k(chipset_config[2]),
 	.sel_chip(sel_chip),

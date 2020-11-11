@@ -51,9 +51,12 @@ module sdram_ctrl(
   input  wire    [23:1] chipAddr,
   input  wire           chipL,
   input  wire           chipU,
+  input  wire           chipL2,
+  input  wire           chipU2,
   input  wire           chipRW,
   input  wire           chip_dma,
   input  wire [ 16-1:0] chipWR,
+  input  wire [ 16-1:0] chipWR2,
   output reg  [ 16-1:0] chipRD,
   output wire [ 48-1:0] chip48,
   // RTG
@@ -525,9 +528,10 @@ always @ (posedge sysclk) begin
 					sd_cmd              <= #1 CMD_ACTIVE;
 					slot1_bank          <= #1 2'b00;
 					slot1_dqm           <= #1 {chipU,chipL};
-					slot1_dqm2          <= #1 2'b11;
+					slot1_dqm2          <= #1 {chipU2,chipL2};
 					slot1_addr          <= #1 {1'b0, chipAddr, 1'b0};
 					slot1_write         <= #1 !chipRW;
+					if (~chipU2 | ~chipL2) slot1_addr[1] <= #1 1'b0; // Hack for 32 bit access
 				end
 				// next in line is refresh
 				// (a refresh cycle blocks both access slots)
@@ -697,6 +701,7 @@ always @ (posedge sysclk) begin
 					sdaddr[2:0]     <= #1 slot1_addr[3:1] + 1'd1;
 					ba              <= #1 slot1_bank;
 					case (slot1_type)
+						CHIP:           sdata_out <= #1 chipWR2;
 						CPU_WRITECACHE:	sdata_out <= #1 writebufferWR2_reg;
 						default :       sdata_out <= #1 hostWR[15:0];
 					endcase

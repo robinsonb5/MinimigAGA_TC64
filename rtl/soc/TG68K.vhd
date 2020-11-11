@@ -45,16 +45,20 @@ port(
 	addr          : buffer  std_logic_vector(31 downto 0);
 	data_read     : in      std_logic_vector(15 downto 0);
 	data_read2    : in      std_logic_vector(15 downto 0);
-	data_write    : buffer  std_logic_vector(15 downto 0);
+	data_write    : out     std_logic_vector(15 downto 0);
+	data_write2   : out     std_logic_vector(15 downto 0);
 	as            : out     std_logic;
 	uds           : out     std_logic;
 	lds           : out     std_logic;
+	uds2          : out     std_logic;
+	lds2          : out     std_logic;
 	rw            : out     std_logic;
 	vma           : buffer  std_logic:='1';
 	wrd           : out     std_logic;
 	ena7RDreg     : in      std_logic:='1';
 	ena7WRreg     : in      std_logic:='1';
 	fromram       : in      std_logic_vector(15 downto 0);
+	toram         : out     std_logic_vector(15 downto 0);
 	ramready      : in      std_logic:='0';
 	cpu           : in      std_logic_vector(1 downto 0);
 	ziiram_active : in      std_logic;
@@ -144,6 +148,7 @@ TYPE   sync_states      IS (sync0, sync1, sync2, sync3, sync4, sync5, sync6, syn
 SIGNAL sync_state       : sync_states;
 SIGNAL datatg68_c       : std_logic_vector(15 downto 0);
 SIGNAL datatg68         : std_logic_vector(15 downto 0);
+SIGNAL w_datatg68       : std_logic_vector(15 downto 0);
 SIGNAL ramcs            : std_logic;
 
 SIGNAL z2ram_ena        : std_logic;
@@ -203,6 +208,7 @@ sel_eth<='0';
 
 	sel_nmi_vector <= '1' WHEN sel_nmi_vector_addr='1' AND state="10" ELSE '0';
 
+	toram <= w_datatg68;
 	wrd <= wr;
 	cpu_int <= '1' WHEN state = "01" else '0';
 	PROCESS(clk) BEGIN
@@ -326,7 +332,7 @@ pf68K_Kernel_inst: work.TG68KdotC_Kernel
     CPU             => cpu,
     regin_out       => open,          -- : out std_logic_vector(31 downto 0);
     addr_out        => addrtg68,      -- : buffer std_logic_vector(31 downto 0);
-    data_write      => data_write,    -- : out std_logic_vector(15 downto 0);
+    data_write      => w_datatg68,    -- : out std_logic_vector(15 downto 0);
     busstate        => state,         -- : buffer std_logic_vector(1 downto 0);
 	 longword        => longword,
     nWr             => wr,            -- : out std_logic;
@@ -391,7 +397,7 @@ port map
 );
 
 
-akiko_d <= data_write;
+akiko_d <= w_datatg68;
 process(clk,cpuaddr) begin
 	if rising_edge(clk) then
 		if sel_akiko='0' then
@@ -453,7 +459,7 @@ END PROCESS;
 chipset_cycle <= '1' when (sel_ram='0' OR sel_nmi_vector='1')
 	AND sel_akiko='0' and sel_undecoded='0' else '0';
 
-PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, sel_ram, sel_nmi_vector)
+PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, chipset_cycle)
   BEGIN
     IF state="01" THEN
       as <= '1';
@@ -461,7 +467,7 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
       uds <= '1';
       lds <= '1';
     ELSE
-      as <= (as_s AND as_e) OR (sel_ram AND NOT sel_nmi_vector);
+      as <= (as_s AND as_e) OR NOT chipset_cycle;
       rw <= rw_s AND rw_e;
       uds <= uds_s AND uds_e;
       lds <= lds_s AND lds_e;
@@ -477,9 +483,16 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
       rw_e <= '1';
       uds_e <= '1';
       lds_e <= '1';
+      uds2 <= '1';
+      lds2 <= '1';
       clkena_e <= '0';
       clkena_f <= '0';
     ELSIF rising_edge(clk) THEN
+      IF S_state = "01" AND clkena_e = '1' THEN
+        uds2 <= uds_in;
+        lds2 <= lds_in;
+        data_write2 <= w_datatg68;
+      END IF;
       IF ena7WRreg='1' THEN
         as_s <= '1';
         rw_s <= '1';
@@ -489,13 +502,21 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
             WHEN "00" => IF cpu_int='0' AND chipset_cycle='1' THEN
                     uds_s <= uds_in;
                     lds_s <= lds_in;
+                    uds2 <= '1';
+                    lds2 <= '1';
                     as_e <= '0';
+                    rw_s <= wr;
+                    data_write <= w_datatg68;
+                    IF aga = '1' AND cpu(1) = '1' AND longword = '1' AND state = "11" AND addr(1 downto 0) = "00" AND sel_chip = '1' THEN
+                       -- 32 bit write
+                       clkena_e <= '1';
+                    END IF;
                     S_state <= "01";
                    END IF;
             WHEN "01" => as_s <= '0';
-                   rw_s <= wr;
                    uds_s <= uds_in;
                    lds_s <= lds_in;
+                   clkena_e <= '0';
                    S_state <= "10";
             WHEN "10" =>
                    r_data <= data_read;
@@ -519,7 +540,6 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
         rw_e <= '1';
         uds_e <= '1';
         lds_e <= '1';
-        clkena_e <= '0';
         clkena_f <= '0';
         CASE S_state IS
           WHEN "00" =>
@@ -548,6 +568,8 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
                  IF clkena = '1' THEN
                    S_state <= "00";
                    clkena_e <= '0';
+                   uds2 <= '1';
+                   lds2 <= '1';
                  END IF;
           WHEN OTHERS => null;
         END CASE;
