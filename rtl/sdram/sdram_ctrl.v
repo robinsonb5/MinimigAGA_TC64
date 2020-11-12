@@ -531,7 +531,6 @@ always @ (posedge sysclk) begin
 					slot1_dqm2          <= #1 {chipU2,chipL2};
 					slot1_addr          <= #1 {1'b0, chipAddr, 1'b0};
 					slot1_write         <= #1 !chipRW;
-					if (~chipU2 | ~chipL2) slot1_addr[1] <= #1 1'b0; // Hack for 32 bit access
 				end
 				// next in line is refresh
 				// (a refresh cycle blocks both access slots)

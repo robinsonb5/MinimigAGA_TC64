@@ -42,7 +42,7 @@ port(
 	dtack         : in      std_logic;
 	vpa           : in      std_logic:='1';
 	ein           : in      std_logic:='1';
-	addr          : buffer  std_logic_vector(31 downto 0);
+	addr          : out     std_logic_vector(31 downto 0);
 	data_read     : in      std_logic_vector(15 downto 0);
 	data_read2    : in      std_logic_vector(15 downto 0);
 	data_write    : out     std_logic_vector(15 downto 0);
@@ -213,7 +213,6 @@ sel_eth<='0';
 	cpu_int <= '1' WHEN state = "01" else '0';
 	PROCESS(clk) BEGIN
 		IF rising_edge(clk) THEN
-			addr <= cpuaddr;
 			z2ram_ena <= ziiram_active;
 			z3ram_ena <= ziiiram_active;
 			z3ram2_ena <= ziiiram2_active;
@@ -507,7 +506,8 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
                     as_e <= '0';
                     rw_s <= wr;
                     data_write <= w_datatg68;
-                    IF aga = '1' AND cpu(1) = '1' AND longword = '1' AND state = "11" AND addr(1 downto 0) = "00" AND sel_chip = '1' THEN
+                    addr <= cpuaddr;
+                    IF aga = '1' AND cpu(1) = '1' AND longword = '1' AND state = "11" AND cpuaddr(1 downto 0) = "00" AND sel_chip = '1' THEN
                        -- 32 bit write
                        clkena_e <= '1';
                     END IF;
@@ -561,7 +561,7 @@ PROCESS (clk, reset, state, as_s, as_e, rw_s, rw_e, uds_s, uds_e, lds_s, lds_e, 
                  waitm <= dtack;
           WHEN "11" =>
                  clkena_e <= '1';
-                 IF aga = '1' AND cpu(1) = '1' AND longword = '1' AND state(0) = '0' AND addr(1 downto 0) = "00" AND (sel_chip = '1' OR sel_kick = '1') THEN
+                 IF aga = '1' AND cpu(1) = '1' AND longword = '1' AND state(0) = '0' AND cpuaddr(1 downto 0) = "00" AND (sel_chip = '1' OR sel_kick = '1') THEN
                    -- 32 bit read
                    clkena_f <= '1';
                  END IF;
