@@ -39,7 +39,8 @@ module cpu_cache_new (
   // snoop
   input  wire           snoop_act,      // snoop act (write only - just update existing data in cache)
   input  wire [ 25-1:0] snoop_adr,      // chip address
-  input  wire [ 16-1:0] snoop_dat_w     // snoop write data
+  input  wire [ 32-1:0] snoop_dat_w,    // snoop write data
+  input  wire [  4-1:0] snoop_bs        // snoop byte selects
 );
 
 
@@ -49,7 +50,7 @@ module cpu_cache_new (
 reg           cache_init_done;
 // state
 reg  [ 4-1:0] cpu_sm_state;
-reg  [ 4-1:0] sdr_sm_state;
+reg  [ 2-1:0] sdr_sm_state;
 reg           write_ena;
 // state signals
 reg           fill;
@@ -78,6 +79,7 @@ reg           sdr_sm_iram0_we;
 reg           sdr_sm_iram1_we;
 reg           sdr_sm_dram0_we;
 reg           sdr_sm_dram1_we;
+reg  [ 4-1:0] sdr_sm_bs;
 reg  [32-1:0] sdr_sm_mem_dat_w;
 reg  [32-1:0] sdr_sm_tag_dat_w;
 reg           sdr_sm_id;
@@ -212,16 +214,11 @@ localparam [3:0]
   CPU_SM_FILLW = 4'd11;
 
 // sdram-side state machine
-localparam [3:0]
-  SDR_SM_INIT0 = 4'd0,
-  SDR_SM_INIT1 = 4'd1,
-  SDR_SM_IDLE  = 4'd2,
-  SDR_SM_SNOOP = 4'd3,
-  SDR_SM_FILL  = 4'd4,
-  SDR_SM_FILL1 = 4'd5,
-  SDR_SM_FILL2 = 4'd6,
-  SDR_SM_FILL3 = 4'd7,
-  SDR_SM_WAIT  = 4'd12;
+localparam [1:0]
+  SDR_SM_INIT0 = 2'd0,
+  SDR_SM_INIT1 = 2'd1,
+  SDR_SM_IDLE  = 2'd2,
+  SDR_SM_SNOOP = 2'd3;
 
 
 //// cpu side ////
@@ -551,6 +548,7 @@ always @ (posedge clk) begin
     sdr_sm_iram1_we   <= #1 1'b0;
     sdr_sm_dram0_we   <= #1 1'b0;
     sdr_sm_dram1_we   <= #1 1'b0;
+    sdr_sm_bs         <= #1 4'b1111;
   end else begin
     // default values
     cache_init_done   <= #1 1'b1;
@@ -560,6 +558,7 @@ always @ (posedge clk) begin
     sdr_sm_iram1_we   <= #1 1'b0;
     sdr_sm_dram0_we   <= #1 1'b0;
     sdr_sm_dram1_we   <= #1 1'b0;
+    sdr_sm_bs         <= #1 4'b1111;
     // state machine
     case (sdr_sm_state)
       SDR_SM_INIT0 : begin
@@ -586,95 +585,30 @@ always @ (posedge clk) begin
       SDR_SM_IDLE : begin
         // wait for action
         cache_init_done <= #1 1'b1;
-        sdr_sm_adr <= #1 snoop_adr[10:1];
+        sdr_sm_adr <= #1 snoop_adr[11:2];
         if (cc_clr) begin
           sdr_sm_state <= #1 SDR_SM_INIT0;
         end
-        else if (1'b0/*snoop_act*/) begin
+        else if (snoop_act) begin
           // chip write happening
           sdr_sm_state <= #1 SDR_SM_SNOOP;
-        end/* else if (sdr_read_req) begin
-          // cpu read cache request
-          sdr_sm_tag_adr <= #1 cpu_adr_tag;
-          sdr_sm_adr <= #1 {cpu_adr_idx, cpu_adr_blk};
-          sdr_sm_state <= #1 SDR_SM_FILL;
-        end*/
+        end
       end
       SDR_SM_SNOOP : begin
         // update if a matching address is in cache
-        /*
-        sdr_sm_mem_dat_w <= #1 snoop_dat_w;
+        if (snoop_adr[1]) begin
+          sdr_sm_mem_dat_w <= #1 { snoop_dat_w[15:0], snoop_dat_w[15:0] };
+          sdr_sm_bs <= #1 { snoop_bs[1:0], 2'b00 };
+        end else begin
+          sdr_sm_mem_dat_w <= #1 snoop_dat_w;
+				  sdr_sm_bs <= #1 snoop_bs;
+        end
         sdr_sm_iram0_we <= #1 sdr_itag0_match && sdr_itag0_valid;
         sdr_sm_iram1_we <= #1 sdr_itag1_match && sdr_itag1_valid;
         sdr_sm_dram0_we <= #1 sdr_dtag0_match && sdr_dtag0_valid;
         sdr_sm_dram1_we <= #1 sdr_dtag1_match && sdr_dtag1_valid;
         sdr_sm_state <= #1 SDR_SM_IDLE;
-        */
       end
-/*
-      SDR_SM_FILL : begin
-        if (sdr_read_ack) begin
-          sdr_sm_mem_dat_w <= #1 sdr_dat_r;
-          sdr_sm_id   <= #1 cpu_ir;
-          sdr_sm_ilru <= #1 sdr_itag_lru;
-          sdr_sm_dlru <= #1 sdr_dtag_lru;
-          sdr_sm_iram0_we <= #1 sdr_itag_lru && cpu_ir;
-          sdr_sm_iram1_we <= #1 !sdr_itag_lru && cpu_ir;
-          sdr_sm_dram0_we <= #1 sdr_dtag_lru && !cpu_ir;
-          sdr_sm_dram1_we <= #1 !sdr_dtag_lru && !cpu_ir;
-          sdr_sm_state <= #1 SDR_SM_FILL1;
-        end
-      end
-      SDR_SM_FILL1 : begin
-        // writing 1st word, preparing 2nd word
-        sdr_sm_adr[1:0] <= #1 sdr_sm_adr[1:0] + 2'b01;
-        sdr_sm_mem_dat_w <= #1 sdr_dat_r;
-        sdr_sm_iram0_we <= #1 sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_iram1_we <= #1 !sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_dram0_we <= #1 sdr_sm_dlru && !sdr_sm_id;
-        sdr_sm_dram1_we <= #1 !sdr_sm_dlru && !sdr_sm_id;
-        sdr_sm_state <= #1 SDR_SM_FILL2;
-      end
-      SDR_SM_FILL2 : begin
-        // writing 2nd word, preparing 3rd word
-        sdr_sm_adr[1:0] <= #1 sdr_sm_adr[1:0] + 2'b01;
-        sdr_sm_mem_dat_w <= #1 sdr_dat_r;
-        sdr_sm_iram0_we <= #1 sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_iram1_we <= #1 !sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_dram0_we <= #1 sdr_sm_dlru && !sdr_sm_id;
-        sdr_sm_dram1_we <= #1 !sdr_sm_dlru && !sdr_sm_id;
-        sdr_sm_state <= #1 SDR_SM_FILL3;
-      end
-      SDR_SM_FILL3 : begin
-        // writing 3rd word, preparing 4th word, updating tags
-        sdr_sm_adr[1:0] <= #1 sdr_sm_adr[1:0] + 2'b01;
-        sdr_sm_mem_dat_w <= #1 sdr_dat_r;
-        sdr_sm_iram0_we <= #1 sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_iram1_we <= #1 !sdr_sm_ilru && sdr_sm_id;
-        sdr_sm_dram0_we <= #1 sdr_sm_dlru && !sdr_sm_id;
-        sdr_sm_dram1_we <= #1 !sdr_sm_dlru && !sdr_sm_id;
-        if (sdr_sm_id) begin
-          if (sdr_sm_ilru) begin
-            sdr_sm_tag_dat_w <= #1 {1'b0, 1'b1, itram_sdr_dat_r[29], 1'b0, itram_sdr_dat_r[27:14], sdr_sm_tag_adr};
-          end else begin
-            sdr_sm_tag_dat_w <= #1 {1'b1, itram_sdr_dat_r[30], 1'b1, 1'b0, sdr_sm_tag_adr, itram_sdr_dat_r[13: 0]};
-          end
-        end else begin
-          if (sdr_sm_dlru) begin
-            sdr_sm_tag_dat_w <= #1 {1'b0, 1'b1, dtram_sdr_dat_r[29], 1'b0, dtram_sdr_dat_r[27:14], sdr_sm_tag_adr};
-          end else begin
-            sdr_sm_tag_dat_w <= #1 {1'b1, dtram_sdr_dat_r[30], 1'b1, 1'b0, sdr_sm_tag_adr, dtram_sdr_dat_r[13: 0]};
-          end
-        end
-        sdr_sm_itag_we <= #1 sdr_sm_id;
-        sdr_sm_dtag_we <= #1 !sdr_sm_id;
-        sdr_sm_state <= #1 SDR_SM_WAIT;
-      end
-      SDR_SM_WAIT : begin // TODO needed?
-        sdr_sm_adr <= #1 snoop_adr[10:1];
-        sdr_sm_state <= #1 SDR_SM_IDLE;
-      end
-*/
       default: ;
     endcase
   end
@@ -696,8 +630,8 @@ assign itag1_valid      = itram_cpu_dat_r[29];
 assign itram_sdr_adr    = sdr_sm_adr[9:2];
 assign itram_sdr_we     = sdr_sm_itag_we;
 assign itram_sdr_dat_w  = sdr_sm_tag_dat_w;
-assign sdr_itag0_match  = (snoop_adr[23:11] == itram_sdr_dat_r[12:0]);
-assign sdr_itag1_match  = (snoop_adr[23:11] == itram_sdr_dat_r[26:14]);
+assign sdr_itag0_match  = (snoop_adr[24:12] == itram_sdr_dat_r[12:0]);
+assign sdr_itag1_match  = (snoop_adr[24:12] == itram_sdr_dat_r[26:14]);
 assign sdr_itag_hit     = sdr_itag0_match || sdr_itag1_match;
 assign sdr_itag_lru     = itram_sdr_dat_r[31];
 assign sdr_itag0_valid  = itram_sdr_dat_r[30];
@@ -725,8 +659,8 @@ assign idram0_cpu_adr   = fill ? cpu_sm_adr[10:1] : {cpu_adr_idx, cpu_adr_blk_pt
 assign idram0_cpu_bs    = cpu_sm_bs;
 assign idram0_cpu_we    = cpu_sm_iram0_we;
 assign idram0_cpu_dat_w = cpu_sm_mem_dat_w;
-assign idram0_sdr_adr   = snoop_adr[9:0];
-assign idram0_sdr_bs    = 4'b1111;
+assign idram0_sdr_adr   = sdr_sm_adr;
+assign idram0_sdr_bs    = sdr_sm_bs;
 assign idram0_sdr_we    = sdr_sm_iram0_we;
 assign idram0_sdr_dat_w = sdr_sm_mem_dat_w;
 
@@ -754,8 +688,8 @@ assign idram1_cpu_adr   = fill ? cpu_sm_adr[10:1] : {cpu_adr_idx, cpu_adr_blk_pt
 assign idram1_cpu_bs    = cpu_sm_bs;
 assign idram1_cpu_we    = cpu_sm_iram1_we;
 assign idram1_cpu_dat_w = cpu_sm_mem_dat_w;
-assign idram1_sdr_adr   = snoop_adr[9:0];
-assign idram1_sdr_bs    = 4'b1111;
+assign idram1_sdr_adr   = sdr_sm_adr;
+assign idram1_sdr_bs    = sdr_sm_bs;
 assign idram1_sdr_we    = sdr_sm_iram1_we;
 assign idram1_sdr_dat_w = sdr_sm_mem_dat_w;
 
@@ -794,8 +728,8 @@ assign dtag1_valid      = dtram_cpu_dat_r[29];
 assign dtram_sdr_adr    = sdr_sm_adr[9:2];
 assign dtram_sdr_we     = sdr_sm_dtag_we;
 assign dtram_sdr_dat_w  = sdr_sm_tag_dat_w;
-assign sdr_dtag0_match  = (snoop_adr[24:11] == dtram_sdr_dat_r[13:0]);
-assign sdr_dtag1_match  = (snoop_adr[24:11] == dtram_sdr_dat_r[27:14]);
+assign sdr_dtag0_match  = (snoop_adr[24:12] == dtram_sdr_dat_r[12:0]);
+assign sdr_dtag1_match  = (snoop_adr[24:12] == dtram_sdr_dat_r[26:14]);
 assign sdr_dtag_hit     = sdr_dtag0_match || sdr_dtag1_match;
 assign sdr_dtag_lru     = dtram_sdr_dat_r[31];
 assign sdr_dtag0_valid  = dtram_sdr_dat_r[30];
@@ -823,8 +757,8 @@ assign ddram0_cpu_adr   = fill ? cpu_sm_adr[10:1] : {cpu_adr_idx, cpu_adr_blk_pt
 assign ddram0_cpu_bs    = cpu_sm_bs;
 assign ddram0_cpu_we    = cpu_sm_dram0_we;
 assign ddram0_cpu_dat_w = cpu_sm_mem_dat_w;
-assign ddram0_sdr_adr   = snoop_adr[9:0];
-assign ddram0_sdr_bs    = 4'b1111;
+assign ddram0_sdr_adr   = sdr_sm_adr;
+assign ddram0_sdr_bs    = sdr_sm_bs;
 assign ddram0_sdr_we    = sdr_sm_dram0_we;
 assign ddram0_sdr_dat_w = sdr_sm_mem_dat_w;
 
@@ -852,8 +786,8 @@ assign ddram1_cpu_adr   = fill ? cpu_sm_adr[10:1] : {cpu_adr_idx, cpu_adr_blk_pt
 assign ddram1_cpu_bs    = cpu_sm_bs;
 assign ddram1_cpu_we    = cpu_sm_dram1_we;
 assign ddram1_cpu_dat_w = cpu_sm_mem_dat_w;
-assign ddram1_sdr_adr   = snoop_adr[9:0];
-assign ddram1_sdr_bs    = 4'b1111;
+assign ddram1_sdr_adr   = sdr_sm_adr;
+assign ddram1_sdr_bs    = sdr_sm_bs;
 assign ddram1_sdr_we    = sdr_sm_dram1_we;
 assign ddram1_sdr_dat_w = sdr_sm_mem_dat_w;
 

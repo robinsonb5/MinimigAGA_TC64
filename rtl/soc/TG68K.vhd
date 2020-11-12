@@ -265,14 +265,14 @@ sel_eth<='0';
       OR sel_audio='1'
     ) ELSE '0';
 
-  cache_inhibit <= '1' WHEN sel_chipram='1' OR sel_kickram='1' ELSE '0';
+  cache_inhibit <= '1' WHEN sel_kickram='1' ELSE '0';
 
   ramcs <= NOT (NOT cpu_int AND sel_ram_d AND NOT sel_nmi_vector) OR slower(0);
 
   cpustate <= longword&clkena&slower(1 downto 0)&ramcs&state(1 downto 0);
   ramlds <= lds_in;
   ramuds <= uds_in;
-  
+
 -- This is the mapping to the SDRAM
 -- map $00-$1F to $00-$1F (chipram), $A0-$FF to $20-$7F. All non-fastram goes into the first
 -- 8M block (i.e. SDRAM bank 0). This map should be the same as in minimig_sram_bridge.v

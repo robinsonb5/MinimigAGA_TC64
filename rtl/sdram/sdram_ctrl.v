@@ -159,6 +159,7 @@ reg           clk7_enD;
 reg  [ 9-1:0] refreshcnt;
 reg           refresh_pending;
 reg  [ 4-1:0] sdram_state;
+reg           snoop_act;
 // writebuffer
 reg           slot1_write;
 reg           slot2_write;
@@ -253,9 +254,6 @@ end
 // cpu cache
 ////////////////////////////////////////
 
-wire snoop_act;
-assign snoop_act = ((sdram_state==ph2)&&(!chipRW));
-
 //// cpu cache ////
 cpu_cache_new cpu_cache (
 	.clk              (sysclk),                       // clock
@@ -283,7 +281,8 @@ cpu_cache_new cpu_cache (
 	.sdr_write_ack    (writebuffer_hold),
 	.snoop_act        (snoop_act),                    // snoop act (write only - just update existing data in cache)
 	.snoop_adr        ({1'b0, chipAddr, 1'b0}),       // snoop address
-	.snoop_dat_w      (chipWR)                        // snoop write data
+	.snoop_dat_w      ({chipWR2, chipWR}),            // snoop write data
+	.snoop_bs         ({!chipU2, !chipL2, !chipU, !chipL})
 );
 
 assign longword_en = cpuLongword && cpuAddr_r[3:1]!=3'b111 && cpustate[1:0]==2'b11;
@@ -453,6 +452,7 @@ always @ (posedge sysclk) begin
 	dqm                         <= #1 2'b00;
 	cache_fill_1                <= #1 1'b0;
 	cache_fill_2                <= #1 1'b0;
+	snoop_act                   <= #1 1'b0;
 	if(!init_done) begin
 		if(sdram_state == ph1) begin
 			case(initstate)
@@ -593,6 +593,8 @@ always @ (posedge sysclk) begin
 			end
 
 			ph2 : begin
+				if(slot1_type == CHIP && slot1_write) snoop_act <= #1 1'b1;
+
 				if(slot2_write) begin // Write cycle (2nd word)
 					sdaddr[12:3]        <= #1 {1'b0, 1'b0, 1'b1, 1'b0, slot2_addr[9:4]}; // auto-precharge
 					sdaddr[2:0]         <= #1 slot2_addr[3:1] + 1'd1;
