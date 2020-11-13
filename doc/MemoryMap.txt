@@ -4,6 +4,7 @@ Minimig Memory Map
 
 
 Amiga addr         SD Bank  SD addr    Host addr   Purpose
+(Bits 23:16)
 0x00 - 0x07        0        0x000      0x68        Chip RAM
 0x08 - 0x0f        0        0x008      0x60        Chip RAM
 0x10 - 0x17        0        0x010      0x78        Chip RAM
@@ -12,27 +13,28 @@ Amiga addr         SD Bank  SD addr    Host addr   Purpose
 0x20 - 0x7f        1        0x0a0      n/a         24-bit Fast RAM
 0x80 - 0x9f        1        0x080      n/a         24-bit Fast RAM  (RTG framebuffer is allocated here.)
 
-0xa0 - 0xa7        0        0x020   -  0x48        PCMCIA space - not mapped.  (RAM Remapped to 0x41000000)
-0xa8 - 0xaf        0        0x028   -  0x40        Reserved.  (RAM Remapped to 41080000)
-0xb0 - 0xb7        0        0x030   -  0x58        Reserved.  (RAM Remapped to 41100000)
-0xb8 - 0xbf        0        0x038   -  0x50        Akiko + CIA registers.  (RAM Remapped to 41180000)
+0xa0 - 0xa7        0        0x020      0x48        PCMCIA space - not mapped.  (RAM Remapped to 0x41000000)
+0xa8 - 0xaf        0        0x028      0x40        Reserved.  (RAM Remapped to 41080000)
+0xb0 - 0xb7        0        0x030      0x58        Reserved.  (RAM Remapped to 41100000)
+0xb8 - 0xbf        0        0x038      0x50        Akiko + CIA registers.  (RAM Remapped to 41180000)
 
-0xc0 - 0xc7        0        0x040   -  0x28        Slow RAM.  (When disabled, RAM remapped to 41200000)
-0xc8 - 0xcf        0        0x048   -  0x20        Slow RAM.  (When disabled, RAM remapped to 41280000)
-0xd0 - 0xd7        0        0x050   -  0x38        Slow RAM.  (When disabled, RAM remapped to 41300000)
-0xd8 - 0xdf        0        0x058   -  0x30        Clock port / Hardware Registers.  (RAM remapped to 43800000)
+0xc0 - 0xc7        0        0x040      0x28        Slow RAM.  (When disabled, RAM remapped to 41200000)
+0xc8 - 0xcf        0        0x048      0x20        Slow RAM.  (When disabled, RAM remapped to 41280000)
+0xd0 - 0xd7        0        0x050      0x38        Slow RAM.  (When disabled, RAM remapped to 41300000)
+0xd8 - 0xdf        0        0x058      0x30        Clock port / Hardware Registers.  (RAM remapped to 41380000)
 
-0xe0 - 0xe7        0        0x060   -  0x08        1st half of 1 meg kickstart ROM
-0xe8 - 0x8f        0        0x068   -  0x00        Autoconfig space (Host ROM and Audio buffer)
-0xf0 - 0xf7        0        0x070   -  0x18        Extended ROM (only used by CDTV in real hardware - Shareable)
-0xf8 - 0xff        0        0x078   -  0x10        Kickstart 512k kickstart ROM
+0xe0 - 0xe7        0        0x060      0x08        1st half of 1 meg kickstart ROM
+0xe8 - 0x8f        0        0x068      0x00        Autoconfig space (Host ROM and Audio buffer)
+0xf0 - 0xf7        0        0x070      0x18        Extended ROM (only used by CDTV in real hardware)
+0xf8 - 0xff        0        0x078      0x10        Kickstart 512k kickstart ROM
 
-0x4000 - 0x401f    2        0x100   -  n/a         32-bit Fast RAM
-0x4020 - 0x409f    3        0x1a0   -  n/a         32-bit Fast RAM
-0x40a0 - 0x40ff    2        0x120   -  n/a         32-bit Fast RAM
+(Bits 30:16)
+0x4000 - 0x401f    2        0x100      n/a         32-bit Fast RAM
+0x4020 - 0x409f    3        0x1a0      n/a         32-bit Fast RAM
+0x40a0 - 0x40ff    2        0x120      n/a         32-bit Fast RAM
 
-0x4100 - 0x402f    0        0x020   -  0x48        32-bit Fast RAM
-0x4120 - 0x403f    0        0x040   -  0x28        32-bit Fast RAM
+0x4100 - 0x402f    0        0x020      0x48        32-bit Fast RAM
+0x4120 - 0x403f    0        0x040      0x28        32-bit Fast RAM
 
 
 Note: Bank mapping is constant across the whole address space.

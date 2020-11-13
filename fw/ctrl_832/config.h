@@ -65,7 +65,7 @@ extern fileTYPE file;	// Temporary file available for use by other modules, to a
 extern configTYPE config; 
 extern char DebugMode;
 
-char UploadKickstart(unsigned long dir,char *name);
+int UploadKickstart(unsigned long dir,char *name);
 char UploadActionReplay();
 void SetConfigurationFilename(int config);	// Set configuration filename by slot number
 unsigned char LoadConfiguration(char *filename);	// Can supply NULL to use filename previously set by slot number

@@ -51,7 +51,7 @@ void ClearVectorTable(void)
 }
 
 //// UploadKickstart() ////
-char UploadKickstart(unsigned long dir,char *name)
+int UploadKickstart(unsigned long dir,char *name)
 {
 	int keysize=0;
 	char filename[12];
@@ -89,21 +89,21 @@ char UploadKickstart(unsigned long dir,char *name)
 			SendFileV2(&romfile, NULL, 0, 0xe00000, romfile.size>>10);
 			SendFileV2(&romfile, NULL, 0, 0xf80000, romfile.size>>10);
 			ClearVectorTable();
-			return(1);
+			return(1024);
 		} else if(romfile.size == 0x80000) {
 			// 512KB Kickstart ROM
 			SendFileV2(&romfile, NULL, 0, 0xf80000, romfile.size>>9);
 			RAOpen(&romfile, filename);
 			SendFileV2(&romfile, NULL, 0, 0xe00000, romfile.size>>9);
 			ClearVectorTable();
-			return(1);
+			return(512);
 		} else if ((romfile.size == 0x8000b)) {
 			// 512KB Kickstart ROM
 			SendFileV2(&romfile, romkey, keysize, 0xf80000, romfile.size>>9);
 			RAOpen(&romfile, filename);
 			SendFileV2(&romfile, romkey, keysize, 0xe00000, romfile.size>>9);
 			ClearVectorTable();
-			return(1);
+			return(512);
 		} else if (romfile.size == 0x40000) {
 			// 256KB Kickstart ROM
 			SendFileV2(&romfile, NULL, 0, 0xf80000, romfile.size>>9);
@@ -111,7 +111,7 @@ char UploadKickstart(unsigned long dir,char *name)
 			SendFileV2(&romfile, NULL, 0, 0xfc0000, romfile.size>>9);
 			ClearVectorTable();
 			ClearKickstartMirrorE0();
-			return(1);
+			return(256);
 		} else if ((romfile.size == 0x4000b)) {
 			// 256KB Kickstart ROM
 			SendFileV2(&romfile, romkey, keysize, 0xf80000, romfile.size>>9);
@@ -119,7 +119,7 @@ char UploadKickstart(unsigned long dir,char *name)
 			SendFileV2(&romfile, romkey, keysize, 0xfc0000, romfile.size>>9);
 			ClearVectorTable();
 			ClearKickstartMirrorE0();
-			return(1);
+			return(256);
 		} else {
 			FatalError(ERROR_ROM,"ROM size incorrect",romfile.size,0);
 		}
@@ -347,6 +347,7 @@ int ApplyConfiguration(char reloadkickstart, char applydrives)
 {
 	int rstval=0;
 	int result=0;
+	int romsize=0;
 //	printf("c1: %x\n",CheckSum());
 
 	// Whether or not we uploaded a kickstart image we now need to set various parameters from the config.
@@ -425,7 +426,7 @@ int ApplyConfiguration(char reloadkickstart, char applydrives)
 		DisableOsd();
 		SPIN; SPIN; SPIN; SPIN;
 		UploadActionReplay();
-		if (UploadKickstart(config.kickdir,config.kickstart.name))
+		if (romsize=UploadKickstart(config.kickdir,config.kickstart.name))
 		{
 			result=1;
 		}
@@ -434,9 +435,9 @@ int ApplyConfiguration(char reloadkickstart, char applydrives)
 			strcpy(config.kickstart.name, "KICK    ");
 			result=UploadKickstart(config.kickdir,config.kickstart.name);
 		}
-		if(result)
+		if(result && romsize<1024)
 		{
-			/* Attempt to upload an extended ROM */
+			/* Attempt to upload an extended ROM, but only if the kickstart file is less than a megabyte */
 			if(!UploadExtROM(config.extromdir,config.extrom.name))
 			{
 				strcpy(config.extrom.name, "EXTENDED");

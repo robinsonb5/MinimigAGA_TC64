@@ -181,7 +181,7 @@ void ReadTrack(adfTYPE *drive)
     if (drive->track >= drive->tracks)
     {
         printf("Illegal track read: %d\r", drive->track);
-        FatalError(ERROR_FDD,"Illegal track read!", drive->track,0);
+        FatalError(ERROR_FDD,"Illegal track read!", drive->track,drive->tracks);
         drive->track = drive->tracks - 1;
     }
 
