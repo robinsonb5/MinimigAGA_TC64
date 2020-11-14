@@ -25,7 +25,7 @@ struct dsevent
 	int timestamp;
 };
 
-#define DSEVENTBUFFER_SIZE 8
+#define DSEVENTBUFFER_SIZE 16
 
 struct dseventbuffer
 {

@@ -33,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "menu.h"
 #include "fpga.h"
 #include "config.h"
+#include "drivesounds.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +49,7 @@ char debugmsg2[40];
 #define DEBUG1(x) {if(DebugMode) DebugMessage(x);}
 #define DEBUG2(x,y) {if(DebugMode) { sprintf(debugmsg2,x,y); DebugMessage(debugmsg2); }}
 
+static int lastcyl;
 
 static char filename[12];
 
@@ -453,6 +455,10 @@ void ATA_ReadSectors(unsigned char* tfr, int sector, int cylinder, int head, int
 		}
 		/* Update task file with CHS address */
 		WriteTaskFile(0, tfr[2], sector, cylinder, (cylinder >> 8), (tfr[6] & 0xF0) | head);
+
+		if(cylinder!=lastcyl)
+			drivesounds_queueevent(DRIVESOUND_HDDSTEP);
+		lastcyl=cylinder;
 	}
 	WriteStatus(IDE_STATUS_END);
 }
@@ -538,6 +544,10 @@ void ATA_WriteSectors(unsigned char* tfr, int sector, int cylinder, int head, in
 		}
 
 		WriteTaskFile(0, tfr[2], sector, cylinder,(cylinder >> 8), (tfr[6] & 0xF0) | head);
+
+		if(cylinder!=lastcyl)
+			drivesounds_queueevent(DRIVESOUND_HDDSTEP);
+		lastcyl=cylinder;
 
 	    if (sector_count)
 	        WriteStatus(IDE_STATUS_IRQ);
