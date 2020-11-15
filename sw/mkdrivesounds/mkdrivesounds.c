@@ -2,12 +2,13 @@
 
 enum DriveSound_Type {
 	DRIVESOUND_INSERT=0,DRIVESOUND_EJECT,DRIVESOUND_MOTORSTART,DRIVESOUND_MOTORLOOP,DRIVESOUND_MOTORSTOP,
-	DRIVESOUND_STEP1,DRIVESOUND_STEP2,DRIVESOUND_STEP3,DRIVESOUND_STEP4,DRIVESOUND_HDDSTEP
+	DRIVESOUND_STEP1,DRIVESOUND_STEP2,DRIVESOUND_STEP3,DRIVESOUND_STEP4,
+	DRIVESOUND_HDDSTEP1,DRIVESOUND_HDDSTEP2,DRIVESOUND_HDDSTEP3,DRIVESOUND_HDDSTEP4
 };
 
 int gains[]=
 {
-	90,90,90,90,90,220,220,220,220,30
+	80,80,80,80,85,180,190,185,181,28,33,30,26
 };
 
 
@@ -21,6 +22,7 @@ void emit_longword_be(unsigned int v)
 
 unsigned char buffer[512];
 
+// Convert little endian to big endian
 int bufferswap(unsigned char *b,int c,int gain)
 {
 	while(c>0)
@@ -28,7 +30,9 @@ int bufferswap(unsigned char *b,int c,int gain)
 		int a=b[0] | (b[1]<<8);
 		if(a&0x8000)
 			a=-(0x10000-a);
+		// Apply gain
 		a=(a*gain)>>8;
+		// Re-encode as S16BE
 		b[0]=a>>8;
 		b[1]=a&0xff;
 		b+=2;

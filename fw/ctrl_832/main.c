@@ -231,8 +231,8 @@ __geta4 int main(void)
 	EnableInterrupts();
 
 	audio_clear();
-	if(drivesounds_loaded() && config.drivesounds)
-		drivesounds_enable();
+	if(drivesounds_loaded())
+		drivesounds_enable(config.drivesounds);
 
     while(1)
     {

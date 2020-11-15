@@ -700,7 +700,7 @@ void HandleFDD(unsigned char c1, unsigned char c2, unsigned char c3, unsigned ch
 	{
 		for(sel=0;sel<4;++sel)
 		{
-			if((c4&1)!=df[sel].motor && (df[sel].status&DSK_INSERTED))
+			if((c4&1)!=df[sel].motor) //  && (df[sel].status&DSK_INSERTED))
 			{
 				int driveson=0;
 				int i;
@@ -711,7 +711,7 @@ void HandleFDD(unsigned char c1, unsigned char c2, unsigned char c3, unsigned ch
 					if(df[i].motor)
 						++driveson;
 				}
-				if((c4&1) && driveson==1)
+				if((c4&1) && driveson==1  && (df[sel].status&DSK_INSERTED))
 					drivesounds_queueevent(DRIVESOUND_MOTORSTART);
 				else if(driveson==0)
 					drivesounds_queueevent(DRIVESOUND_MOTORSTOP);

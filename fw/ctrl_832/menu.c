@@ -505,7 +505,7 @@ void HandleUI(void)
         OsdWrite(1, s, menusub==0,0);
 		sprintf(s," Floppy disk turbo : %s",config.floppy.speed ? "on" : "off");
         OsdWrite(2, s, menusub==1,0);
-		sprintf(s," Floppy disk sounds : %s",config.drivesounds ? "on" : "off");
+		sprintf(s," Floppy disk sounds : %s",config.drivesounds&1 ? "on" : "off");
         OsdWrite(3, s, menusub==2,!drivesounds_loaded());
 		if(!drivesounds_loaded())
 			menumask&=0xb;
@@ -536,11 +536,11 @@ void HandleUI(void)
 		            menustate = MENU_FLOPPY1;
 					break;
 				case 2:
-		            config.drivesounds^=1;
-					if(config.drivesounds)
-						drivesounds_enable();
+		            config.drivesounds^=DRIVESOUNDS_FLOPPY;
+					if(config.drivesounds&DRIVESOUNDS_FLOPPY)
+						drivesounds_enable(DRIVESOUNDS_FLOPPY);
 					else
-						drivesounds_disable();
+						drivesounds_disable(DRIVESOUNDS_FLOPPY);
 		            menustate = MENU_FLOPPY1;
 					break;
 				case 3:
@@ -1416,20 +1416,19 @@ void HandleUI(void)
 		OsdSetTitle("Harddisks",0);
 
 		parentstate = menustate;
-		menumask=0x21;	// b00100001 - On/off & exit enabled by default...
+		menumask=0x41;	// b01000001 - On/off & exit enabled by default...
 		if(config.enable_ide)
-			menumask|=0x0a;  // b00001010 - HD0 and HD1 type
-        strcpy(s, "   A600 IDE : ");
+			menumask|=0x2a;  // b00101010 - HD0 and HD1 type + sounds
+        strcpy(s, "    IDE : ");
         strcat(s, config.enable_ide ? "on " : "off");
         OsdWrite(0, s, menusub == 0,0);
-        OsdWrite(1, "", 0,0);
 
         strcpy(s, " Master : ");
 		if(config.hardfile[0].enabled==(HDF_FILE|HDF_SYNTHRDB))
 			strcat(s,"Hardfile (filesys)");
 		else
 	        strcat(s, config_hdf_msg[config.hardfile[0].enabled & HDF_TYPEMASK]);
-        OsdWrite(2, s, config.enable_ide ? (menusub == 1) : 0 ,config.enable_ide==0);
+        OsdWrite(1, s, config.enable_ide ? (menusub == 1) : 0 ,config.enable_ide==0);
 
         if (config.hardfile[0].present)
         {
@@ -1445,14 +1444,14 @@ void HandleUI(void)
 		enable=config.enable_ide && ((config.hardfile[0].enabled&HDF_TYPEMASK)==HDF_FILE);
 		if(enable)
 			menumask|=0x04;	// Make hardfile selectable
-	    OsdWrite(3, s, enable ? (menusub == 2) : 0 , enable==0);
+	    OsdWrite(2, s, enable ? (menusub == 2) : 0 , enable==0);
 
         strcpy(s, "  Slave : ");
 		if(config.hardfile[1].enabled==(HDF_FILE|HDF_SYNTHRDB))
 			strcat(s,"Hardfile (filesys)");
 		else
 	        strcat(s, config_hdf_msg[config.hardfile[1].enabled & HDF_TYPEMASK]);
-        OsdWrite(4, s, config.enable_ide ? (menusub == 3) : 0 ,config.enable_ide==0);
+        OsdWrite(3, s, config.enable_ide ? (menusub == 3) : 0 ,config.enable_ide==0);
         if (config.hardfile[1].present)
         {
             strcpy(s, "                                ");
@@ -1467,10 +1466,13 @@ void HandleUI(void)
 		enable=config.enable_ide && ((config.hardfile[1].enabled&HDF_TYPEMASK)==HDF_FILE);
 		if(enable)
 			menumask|=0x10;	// Make hardfile selectable
-        OsdWrite(5, s, enable ? (menusub == 4) : 0 ,enable==0);
+        OsdWrite(4, s, enable ? (menusub == 4) : 0 ,enable==0);
 
+        strcpy(s, " Sounds : ");
+        strcat(s, config.drivesounds&2 ? "on " : "off");
+        OsdWrite(5, s, menusub==5,0);
         OsdWrite(6, "", 0,0);
-        OsdWrite(7, STD_BACK, menusub == 5,0);
+        OsdWrite(7, STD_BACK, menusub == 6,0);
 
         menustate = MENU_SETTINGS_HARDFILE2;
 
@@ -1528,7 +1530,16 @@ void HandleUI(void)
             {
                 SelectFile("HDF", SCAN_DIR | SCAN_LFN, MENU_HARDFILE_SELECTED, MENU_SETTINGS_HARDFILE1);
             }
-            else if (menusub == 5) // return to previous menu
+            else if (menusub == 5)
+            {
+                config.drivesounds^=DRIVESOUNDS_HDD;
+				if(config.drivesounds&DRIVESOUNDS_HDD)
+					drivesounds_enable(DRIVESOUNDS_HDD);
+				else
+					drivesounds_disable(DRIVESOUNDS_HDD);
+				menustate = MENU_SETTINGS_HARDFILE1;
+            }
+            else if (menusub == 6) // return to previous menu
             {
                 menustate = MENU_HARDFILE_EXIT;
             }

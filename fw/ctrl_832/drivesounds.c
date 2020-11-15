@@ -45,15 +45,16 @@ struct dseventbuffer
 struct dseventbuffer drivesounds;
 
 
-void drivesounds_enable()
+void drivesounds_enable(int type)
 {
-	drivesounds.enabled=1;
+	drivesounds.enabled|=type;
 }
 
-void drivesounds_disable()
+void drivesounds_disable(int type)
 {
-	audio_stop();
-	drivesounds.enabled=0;
+	drivesounds.enabled&=~type;
+	if(!drivesounds.enabled)
+		audio_stop();
 }
 
 
@@ -64,7 +65,7 @@ void drivesounds_queueevent(enum DriveSound_Type type)
 		if(!drivesounds.active)
 			drivesounds_start();
 		drivesounds.events[drivesounds.in].type=type;
-		drivesounds.events[drivesounds.in].timestamp=TIMER;
+		drivesounds.events[drivesounds.in].timestamp=TIMER; /* Add some jitter */
 		drivesounds.in=(drivesounds.in+1)&(DSEVENTBUFFER_SIZE-1);
 	}
 }
@@ -288,13 +289,28 @@ void drivesounds_render(int timestamp)
 }
 
 
+int countstep(enum DriveSound_Type type)
+{
+	int count=0;
+	int step;
+	for(step=0;step<4;++step)
+	{
+		if(drivesounds.sounds[type+step].active)
+		{
+			++count;
+		}
+	}
+	return(count);
+}
+
+
 /* Pick a step sound at random, while keeping no more than "maxactive" other step sounds playing. */
 
-int pickstep(int maxactive)
+int pickstep(int maxactive,enum DriveSound_Type type)
 {
 	int bestcursor=0;
 	int best=0;
-	int count=4;
+	int count;
 	int step;
 	while(count>maxactive)
 	{
@@ -303,24 +319,24 @@ int pickstep(int maxactive)
 		count=0;
 		for(step=0;step<4;++step)
 		{
-			if(drivesounds.sounds[DRIVESOUND_STEP+step].active)
+			if(drivesounds.sounds[type+step].active)
 			{
 				++count;
-				if(drivesounds.sounds[DRIVESOUND_STEP+step].cursor>=bestcursor)
+				if(drivesounds.sounds[type+step].cursor>=bestcursor)
 				{
 					best=step;	
-					bestcursor=drivesounds.sounds[DRIVESOUND_STEP+step].cursor;
+					bestcursor=drivesounds.sounds[type+step].cursor;
 				}
 			}
 		}
 		if(count>maxactive)
 		{
-			drivesounds.sounds[DRIVESOUND_STEP+best].active=0;
-			drivesounds.sounds[DRIVESOUND_STEP+best].cursor=0;
+			drivesounds.sounds[type+best].active=0;
+			drivesounds.sounds[type+best].cursor=0;
 		}
 	}
 	step=TIMER&3;
-	while(drivesounds.sounds[DRIVESOUND_STEP+step].active)
+	while(drivesounds.sounds[type+step].active)
 		step=(step+1)&3;
 	return(step);
 }
@@ -346,23 +362,44 @@ int drivesounds_fill()
 			switch(dse->type)
 			{
 				case DRIVESOUND_MOTORSTART:
-					drivesounds.sounds[DRIVESOUND_MOTORLOOP].chain=DRIVESOUND_MOTORLOOP;
-					if(!drivesounds.sounds[DRIVESOUND_MOTORLOOP].active)
+					if ((drivesounds.enabled & DRIVESOUNDS_FLOPPY)
 					{
-						drivesounds.sounds[DRIVESOUND_MOTORSTART].chain=DRIVESOUND_MOTORLOOP;
-						drivesounds.sounds[DRIVESOUND_MOTORSTART].active=1;
+						drivesounds.sounds[DRIVESOUND_MOTORLOOP].chain=DRIVESOUND_MOTORLOOP;
+						if(!drivesounds.sounds[DRIVESOUND_MOTORLOOP].active)
+						{
+							drivesounds.sounds[DRIVESOUND_MOTORSTART].chain=DRIVESOUND_MOTORLOOP;
+							drivesounds.sounds[DRIVESOUND_MOTORSTART].active=1;
+						}
 					}
 					break;
 				case DRIVESOUND_MOTORSTOP:
-					drivesounds.sounds[DRIVESOUND_MOTORLOOP].chain=DRIVESOUND_MOTORSTOP;
+					if ((drivesounds.enabled & DRIVESOUNDS_FLOPPY)
+					{
+						drivesounds.sounds[DRIVESOUND_MOTORLOOP].chain=DRIVESOUND_MOTORSTOP;
+					}
 					break;
 				case DRIVESOUND_STEP:
-					dse->type=DRIVESOUND_STEP+pickstep(1);	/* Pick a step sound at "random" */
-					drivesounds.sounds[dse->type].active=1;
-					drivesounds.sounds[dse->type].chain=0;				
+					if ((drivesounds.enabled & DRIVESOUNDS_FLOPPY)
+					{
+						dse->type=DRIVESOUND_STEP+pickstep(1,DRIVESOUND_STEP);	/* Pick a step sound at "random" */
+						drivesounds.sounds[dse->type].active=1;
+						drivesounds.sounds[dse->type].chain=0;
+					}
+					break;
+				case DRIVESOUND_HDDSTEP:
+					if((drivesounds.enabled & DRIVESOUNDS_HDD) && countstep(DRIVESOUND_HDDSTEP)<3)
+					{
+						dse->type=DRIVESOUND_HDDSTEP+pickstep(2,DRIVESOUND_HDDSTEP);	/* Pick a step sound at "random" */
+						drivesounds.sounds[dse->type].active=1;
+						drivesounds.sounds[dse->type].chain=0;
+					}
+					break;
 				default:
-					drivesounds.sounds[dse->type].active=1;
-					drivesounds.sounds[dse->type].chain=0;
+					if ((drivesounds.enabled & DRIVESOUNDS_FLOPPY)
+					{
+						drivesounds.sounds[dse->type].active=1;
+						drivesounds.sounds[dse->type].chain=0;
+					}
 					break;
 			}
 		}
