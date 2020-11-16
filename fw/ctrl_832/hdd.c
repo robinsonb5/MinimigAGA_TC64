@@ -653,6 +653,7 @@ void GetHardfileGeometry(hdfTYPE *pHDF)
     unsigned long total=0;
     unsigned long i, head, cyl, spt;
     long sptt[] = { 63, 127, 255, -1 };
+	unsigned long cyllimit=65535;
 
 	switch(pHDF->type)
 	{
@@ -660,10 +661,11 @@ void GetHardfileGeometry(hdfTYPE *pHDF)
 		    if (pHDF->file.size == 0)
     		    return;
 		    total = pHDF->file.size / 512;
-			pHDF->heads = 1;
-			pHDF->sectors = 32;
-			pHDF->cylinders = total/32 + 1;	// Add a cylinder for the fake RDB.
-			return;			
+			cyllimit-=1;  // leave headroom for the fake RDB
+//			pHDF->heads = 1;
+//			pHDF->sectors = 32;
+//			pHDF->cylinders = total/32 + 1;	// Add a cylinder for the fake RDB.
+//			return;			
 		case HDF_FILE:
 		    if (pHDF->file.size == 0)
     		    return;
@@ -699,13 +701,15 @@ void GetHardfileGeometry(hdfTYPE *pHDF)
                     break;
                 if (cyl < 32767 && head >= 5)
                     break;
-                if (cyl <= 65535)	// Should there some head constraint here?
+                if (cyl <= cyllimit)
                     break;
             }
         }
         if (head <= 16)
             break;
     }
+	if(pHDF->type == (HDF_FILE | HDF_SYNTHRDB))
+		++cyl;	// Add an extra cylinder for the fake RDB
     pHDF->cylinders = (unsigned short)cyl;
     pHDF->heads = (unsigned short)head;
     pHDF->sectors = (unsigned short)spt;
