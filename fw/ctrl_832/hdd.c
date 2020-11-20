@@ -44,7 +44,7 @@ hdfTYPE hdf[2];
 char debugmsg[40];
 char debugmsg2[40];
 
-#define SERIALDEBUG
+#undef SERIALDEBUG
 
 #define DEBUG1(x) {if(DebugMode) DebugMessage(x);}
 #define DEBUG2(x,y) {if(DebugMode) { sprintf(debugmsg2,x,y); DebugMessage(debugmsg2); }}
@@ -372,12 +372,14 @@ void ATA_ReadSectors(unsigned char* tfr, int sector, int cylinder, int head, int
 
 	while (sector_count)
 	{
-        block_count = multiple ? sector_count : 1;
-        if (block_count > hdf[unit].sectors_per_block)
-            block_count = hdf[unit].sectors_per_block;
+		block_count = multiple ? sector_count : 1;
+		if (block_count > hdf[unit].sectors_per_block)
+			block_count = hdf[unit].sectors_per_block;
 
-        WriteStatus(IDE_STATUS_RDY); // pio in (class 1) command type
-	    while (!(GetFPGAStatus() & CMD_IDECMD)); // wait for empty sector buffer
+		WriteStatus(IDE_STATUS_RDY); // pio in (class 1) command type
+		while (!(GetFPGAStatus() & CMD_IDECMD)); // wait for empty sector buffer
+
+//    WriteStatus(IDE_STATUS_IRQ); /* Triggering the IRQ here can mean the IRQ triggers before DRQ is set. */
 
 		switch(hdf[unit].type)
 		{
@@ -387,29 +389,34 @@ void ATA_ReadSectors(unsigned char* tfr, int sector, int cylinder, int head, int
 				{
 					int blk=block_count;
 					// Deal with FakeRDB and the potential for a read_multiple to cross the boundary into actual data.
-					if(lba+hdf[unit].offset<0)
+	        while(blk && ((lba+hdf[unit].offset<0) || (unit==0 && hdf[unit].type==HDF_FILE && lba==0))
 					{
-						FakeRDB(unit,lba);
-				        EnableFpga();
-				        SPI(CMD_IDE_DATA_WR); // write data command
-				        SPI(0x00);
-				        SPI(0x00);
-				        SPI(0x00);
-				        SPI(0x00);
-				        SPI(0x00);
-				        for (i = 0; i < 512; i++)
-				        {
-				            SPI(sector_buffer[i]);
-				        }
-				        DisableFpga();
-						++lba;
-						--blk;
+            if(hdf[unit].type==HDF_FILE)
+            {
+              HardFileSeek(&hdf[unit], lba + hdf[unit].offset); // Patch flags and checksum of RDB.  Actually necessary?
+			        FileReadEx(&hdf[unit].file, sector_buffer, blk);
+              struct RigidDiskBlock *rdb = (struct RigidDiskBlock *)sector_buffer;
+              rdb->rdb_ChkSum = rdb->rdb_ChkSum + rdb->rdb_Flags - 0x12;
+              rdb->rdb_Flags=0x12;
+            }
+            else
+              FakeRDB(unit,lba);
+            EnableFpga();
+            SPI(CMD_IDE_DATA_WR); // write data command
+            SPI(0x00); SPI(0x00); SPI(0x00); SPI(0x00); SPI(0x00);
+            for (i = 0; i < 512; i++)
+            {
+              SPI(sector_buffer[i]);
+            }
+            DisableFpga();
+            ++lba;
+            --blk;
 					}
 					if(blk) // Any blocks left?
 					{
-					    HardFileSeek(&hdf[unit], lba + hdf[unit].offset);
-				        FileReadEx(&hdf[unit].file, 0, blk); // NULL enables direct transfer to the FPGA
-						lba+=blk;
+            HardFileSeek(&hdf[unit], lba + hdf[unit].offset);
+				    FileReadEx(&hdf[unit].file, 0, blk); // NULL enables direct transfer to the FPGA
+            lba+=blk;
 					}
 				}
 				else
@@ -470,7 +477,7 @@ void ATA_WriteSectors(unsigned char* tfr, int sector, int cylinder, int head, in
 	long lba;
 	int block_count;
 	int i;
-    WriteStatus(IDE_STATUS_REQ); // pio out (class 2) command type
+  WriteStatus(IDE_STATUS_REQ); // pio out (class 2) command type
 
 	lba=chs2lba(cylinder, head, sector, unit);
 	DEBUG2("Write lba %ld",lba);
@@ -484,70 +491,65 @@ void ATA_WriteSectors(unsigned char* tfr, int sector, int cylinder, int head, in
 
 	while (sector_count)
 	{
-		while (!(GetFPGAStatus() & CMD_IDEDAT)); // wait for full write buffer
-
 	    block_count = multiple ? sector_count : 1;
 	    if (block_count > hdf[unit].sectors_per_block)
 	        block_count = hdf[unit].sectors_per_block;
 
-		while(block_count--)
-		{
-			EnableFpga();
-			SPI(CMD_IDE_DATA_RD); // read data command
-			SPI(0x00);
-			SPI(0x00);
-			SPI(0x00);
-			SPI(0x00);
-			SPI(0x00);
-			for (i = 0; i < 512; i++)
-				sector_buffer[i] = SPI(0xFF);
-			DisableFpga();
+		  while(block_count--)
+		  {
+    		while (!(GetFPGAStatus() & CMD_IDEDAT)); // wait for full write buffer
+			  EnableFpga();
+			  SPI(CMD_IDE_DATA_RD); // read data command
+			  SPI(0x00); SPI(0x00); SPI(0x00); SPI(0x00); SPI(0x00);
+			  for (i = 0; i < 512; i++)
+				  sector_buffer[i] = SPI(0xFF);
+			  DisableFpga();
 
-			switch(hdf[unit].type)
-			{
-				case HDF_FILE | HDF_SYNTHRDB:
-				case HDF_FILE:
-					if (hdf[unit].file.size && (lba>-1))	// Don't attempt to write to fake RDB
-					{
-						FileWrite(&hdf[unit].file, sector_buffer);
-						FileSeek(&hdf[unit].file, 1, SEEK_CUR);
-					}
-					++lba;
-					break;
-				case HDF_CARD:
-				case HDF_CARDPART0:
-				case HDF_CARDPART1:
-				case HDF_CARDPART2:
-				case HDF_CARDPART3:
-					DEBUG1("Write HDF_Card");
-					MMC_Write(lba,sector_buffer);
-					++lba;
-					break;
-			}
+			  switch(hdf[unit].type)
+			  {
+				  case HDF_FILE | HDF_SYNTHRDB:
+				  case HDF_FILE:
+					  if (hdf[unit].file.size && (lba>-1))	// Don't attempt to write to fake RDB
+					  {
+						  FileWrite(&hdf[unit].file, sector_buffer);
+						  FileSeek(&hdf[unit].file, 1, SEEK_CUR);
+					  }
+					  ++lba;
+					  break;
+				  case HDF_CARD:
+				  case HDF_CARDPART0:
+				  case HDF_CARDPART1:
+				  case HDF_CARDPART2:
+				  case HDF_CARDPART3:
+					  DEBUG1("Write HDF_Card");
+					  MMC_Write(lba,sector_buffer);
+					  ++lba;
+					  break;
+			  }
 
-			if(sector_count!=1)
-			{
-				if (sector == hdf[unit].sectors)
-				{
-					sector = 1;
-					head++;
-					if (head == hdf[unit].heads)
-					{
-						head = 0;
-						cylinder++;
-					}
-				}
-				else
-					sector++;
-			}
-			--sector_count;
-		}
+			  if(sector_count!=1)
+			  {
+				  if (sector == hdf[unit].sectors)
+				  {
+					  sector = 1;
+					  head++;
+					  if (head == hdf[unit].heads)
+					  {
+						  head = 0;
+						  cylinder++;
+					  }
+				  }
+				  else
+					  sector++;
+			  }
+			  --sector_count;
+		  }
 
-		WriteTaskFile(0, tfr[2], sector, cylinder,(cylinder >> 8), (tfr[6] & 0xF0) | head);
+		  WriteTaskFile(0, tfr[2], sector, cylinder,(cylinder >> 8), (tfr[6] & 0xF0) | head);
 
-		if(cylinder!=lastcyl)
-			drivesounds_queueevent(DRIVESOUND_HDDSTEP);
-		lastcyl=cylinder;
+		  if(cylinder!=lastcyl)
+			  drivesounds_queueevent(DRIVESOUND_HDDSTEP);
+		  lastcyl=cylinder;
 
 	    if (sector_count)
 	        WriteStatus(IDE_STATUS_IRQ);
@@ -606,13 +608,15 @@ void HandleHDD(unsigned int c1, unsigned int c2)
 		sector_count = tfr[2];
 		if (sector_count == 0) sector_count = 0x100;
 
-        if (0)
-        {
-            printf("IDE:");
-            for (i = 1; i<=7; i++)
-                printf("%02X.",tfr[i]);
-            printf(", C: %d, H: %d, S: %d, count: %d\r", cylinder,head,sector,sector_count);
-        }
+//		if (cylinder==444 && head==2 && sector==51)
+//			trap();
+
+#ifdef SERIALDEBUG
+    printf("IDE:");
+    for (i = 1; i<=7; i++)
+        printf("%02X.",tfr[i]);
+    printf(", C: %d, H: %d, S: %d, count: %d\r", cylinder,head,sector,sector_count);
+#endif
 		if ((tfr[7] & 0xF0) == ACMD_RECALIBRATE) {
 		  ATA_Recalibrate(tfr,  unit);
 		} else if (tfr[7] == ACMD_DIAGNOSTIC) {
@@ -660,12 +664,25 @@ void GetHardfileGeometry(hdfTYPE *pHDF)
 		case (HDF_FILE | HDF_SYNTHRDB):
 		    if (pHDF->file.size == 0)
     		    return;
+			// For WinUAE generated hardfiles we have a fixed sectorspertrack of 32, number of heads and cylinders are variable.
+			// Make a first guess based on 1 head, then refine that guess until the geometry gives a plausible number of
+			// cylinders and also has the correct number of blocks.
 		    total = pHDF->file.size / 512;
-			cyllimit-=1;  // leave headroom for the fake RDB
-//			pHDF->heads = 1;
-//			pHDF->sectors = 32;
-//			pHDF->cylinders = total/32 + 1;	// Add a cylinder for the fake RDB.
-//			return;			
+			pHDF->sectors = 32;
+			head=1;
+			cyl = total/32;
+			while(head<16 && (cyl>cyllimit || (head*cyl*32)!=total))
+			{
+				++head;
+				cyl=total/(32*head);
+			}
+			pHDF->heads = head;
+			pHDF->cylinders = cyl+1;	// Add a cylinder for the fake RDB.
+		
+			if ((head*cyl*32)==total)	// Does the geometry match the size of the underlying hard file?
+				return;
+			// If not, fall back to regular hardfile geometry aproximations...
+			break;
 		case HDF_FILE:
 		    if (pHDF->file.size == 0)
     		    return;

@@ -74,6 +74,7 @@ force:
 
 version.h: force
 	echo >version.h \#define MM_FIRMWARE_VERSION \"`date +%Y-%-m-%-d`\"
+	touch fpga.c
 
 bootcustominit.h: bootcustominit.s
 	vasmm68k_mot -Fbin bootcustominit.s -o bootcustominit.bin

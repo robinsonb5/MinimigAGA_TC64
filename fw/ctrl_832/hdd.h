@@ -49,8 +49,7 @@ typedef struct
 
 void IdentifyDevice(unsigned short *pBuffer, int unit);
 unsigned long chs2lba(int cylinder, int head, int sector, int unit);
-void WriteTaskFile(unsigned int error, unsigned int sector_count, unsigned int sector_number, unsigned int cylinder_low,
-	unsigned int cylinder_high, unsigned int drive_head);
+void WriteTaskFile(int error,int sector_count,int sector_number,int cylinder_low,int cylinder_high,int drive_head);
 void WriteStatus(unsigned int status);
 void HandleHDD(unsigned int c1, unsigned int c2);
 void GetHardfileGeometry(hdfTYPE *hdf);
