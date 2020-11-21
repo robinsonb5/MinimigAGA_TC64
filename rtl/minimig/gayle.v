@@ -284,7 +284,7 @@ always @(posedge clk)
   		busy <= GND;
   	else if (hdd_status_wr && hdd_data_out[7] || (sector_count_dec && sector_count == 8'h01))	// reset by SPI host (by clearing BSY status bit)
   		busy <= GND;
-  	else if (sel_command)	// set when the CPU writes command register
+  	else if (sel_command) // set when the CPU writes command register
   		busy <= VCC;
   end
 
@@ -293,13 +293,14 @@ always @(posedge clk)
   if (clk7_en) begin
   	if (reset)
   		intreq <= GND;
-  	else if (busy && hdd_status_wr && hdd_data_out[4] && intena) // set by SPI host
+  	else if (busy && hdd_status_wr && hdd_data_out[4]) // set by SPI host
   		intreq <= VCC;
   	else if (sel_intreq && hwr && !data_in[15]) // cleared by the CPU
   		intreq <= GND;
   end
 
-assign irq = (~pio_in | drq) & intreq; // interrupt request line (INT2)
+wire irq_pending = (~pio_in | drq) & intreq;
+assign irq = irq_pending & intena; // interrupt request line (INT2)
 
 // pio in command type
 always @(posedge clk)
@@ -365,11 +366,11 @@ assign nrdy = pio_in & sel_fifo & fifo_empty;
 
 //data_out multiplexer
 assign data_out = (sel_fifo && rd ? fifo_data_out : sel_status ? (!dev && hdd_ena[0]) || (dev && hdd_ena[1]) ? {status,8'h00} : 16'h00_00 : sel_tfr && rd ? {tfr_out,8'h00} : 16'h00_00)
-         | (sel_cs      && rd  ? {(cs_mask[5] || intreq), cs_mask[4:0], cs, 8'h0} : 16'h00_00)				
-			   | (sel_intreq  && rd  ? {intreq, 15'b000_0000_0000_0000}                 : 16'h00_00)				
-			   | (sel_intena  && rd  ? {intena, 15'b000_0000_0000_0000}                 : 16'h00_00)				
-			   | (sel_gayleid && rd  ? {gayleid,15'b000_0000_0000_0000}                 : 16'h00_00)
- 			   | (sel_cfg     && rd  ? {cfg,    12'b0000_0000_0000}                     : 16'h00_00);
+         | (sel_cs      && rd  ? {(cs_mask[5] || intreq), cs_mask[4:0], cs, 8'h0} : 16'h00_00)
+         | (sel_intreq  && rd  ? {irq_pending, 15'b000_0000_0000_0000}            : 16'h00_00)
+         | (sel_intena  && rd  ? {intena,      15'b000_0000_0000_0000}            : 16'h00_00)
+         | (sel_gayleid && rd  ? {gayleid,     15'b000_0000_0000_0000}            : 16'h00_00)
+         | (sel_cfg     && rd  ? {cfg,         12'b0000_0000_0000}                : 16'h00_00);
 
 
 //===============================================================================================//
