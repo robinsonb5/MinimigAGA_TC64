@@ -18,6 +18,7 @@ set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) agnus_b
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) agnus_bitplanedma.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) agnus_beamcounter.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) agnus_audiodma.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) amiga_keyboard.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) ciaa.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) ciaa_ps2keyboard.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) ciaa_ps2keyboard_map.v]
