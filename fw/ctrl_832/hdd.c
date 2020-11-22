@@ -373,7 +373,7 @@ void ATA_ReadSectors(unsigned char* tfr, int sector, int cylinder, int head, int
 	while (sector_count)
 	{
 		block_count = multiple ? sector_count : 1;
-		if (block_count > hdf[unit].sectors_per_block)
+		if (multiple && block_count > hdf[unit].sectors_per_block)
 			block_count = hdf[unit].sectors_per_block;
 
 		WriteStatus(IDE_STATUS_RDY); // pio in (class 1) command type
@@ -492,7 +492,7 @@ void ATA_WriteSectors(unsigned char* tfr, int sector, int cylinder, int head, in
 	while (sector_count)
 	{
 	    block_count = multiple ? sector_count : 1;
-	    if (block_count > hdf[unit].sectors_per_block)
+	    if (multiple && block_count > hdf[unit].sectors_per_block)
 	        block_count = hdf[unit].sectors_per_block;
 
 		  while(block_count--)
@@ -671,6 +671,7 @@ void GetHardfileGeometry(hdfTYPE *pHDF)
 			pHDF->sectors = 32;
 			head=1;
 			cyl = total/32;
+			cyllimit-=1;
 			while(head<16 && (cyl>cyllimit || (head*cyl*32)!=total))
 			{
 				++head;
