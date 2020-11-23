@@ -108,9 +108,13 @@ always @(posedge clk)
 //--------------------------------------------------------------------------------------
 
 // sprite display enable signal - sprites are visible after the first write to the BPL1DAT register in a scanline
+
+// AMR - the delayed blank signal was causing this to be cleared again after the first write to BPL1DAT had set it.
+reg blank_d;
 always @(posedge clk)
   if (clk7_en) begin
-    if (reset || blank)
+    blank_d<=blank;
+    if (reset || (blank & !blank_d)) // rising edge of blank
       display_ena <= 0;
     else if (reg_address_in[8:1]==BPL1DAT[8:1])
       display_ena <= 1;
@@ -288,7 +292,7 @@ assign deniseid_out = reg_address_in[8:1]==DENISEID[8:1] ? aga ? 16'h00f8 : ecs 
 // generate window enable signal
 // true when beamcounter satisfies horizontal diwstrt/diwstop limits
 // AMR - reverse comparison so that areas where HDIWSTART==HDIWSTOP
-// will be correctly blanked in brdrblnk mode.
+// will be correctly blanked in brdrblnk mode.  (display_ena overrides this anyway)
 always @(posedge clk)
   if (clk7_en) begin
     if (hpos[8:0]==hdiwstop[8:0])
@@ -459,8 +463,7 @@ wire  [24-1:0] out_rgb  = ham_sel && window_del && !sprsel_del ? ham_rgb : clut_
 
 wire t_blank;
 
-// AMR - brdrblnk takes priority over border sprites, so don't need to include display_ena at all.
-assign t_blank = blank | ecs & ecsena & brdrblnk & ~window_del;
+assign t_blank = blank | ecs & ecsena & brdrblnk & (~window_del | ~display_ena);
 
 // RGB video output
 assign {red[7:0],green[7:0],blue[7:0]} = t_blank ? 24'h000000 : out_rgb;
