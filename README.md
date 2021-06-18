@@ -1,3 +1,9 @@
+# ARCHIVED
+
+This repo is now archived.
+Up-to-date development on this core will happen at
+https://github.com/minimig-dev/MinimigAGA-MiST-TC64
+
 # Minimig AGA
 For Turbo Chameleon TC64, MiST and other platforms.
 (This core should be easily portable to any FPGA board with VGA out, PS/2 in, SD-card, about 25,000 logic elements, and a 16-bit wide SDRAM supporting 13x9 layout for 32 megabytes of RAM.)
